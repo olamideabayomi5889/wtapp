@@ -7,7 +7,7 @@ interface AuthContextType {
   session: Session | null
   profile: Profile | null
   loading: boolean
-  signUp: (email: string, password: string, userData: any) => Promise<{ data: any; error: string | null }>
+  signUp: (signupData: any) => Promise<{ data: any; error: string | null; message?: string }>
   signIn: (email: string, password: string) => Promise<{ data: any; error: string | null }>
   signOut: () => Promise<void>
   updateProfile: (profileData: Partial<Profile>) => Promise<{ data: Profile | null; error: string | null }>
@@ -68,10 +68,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }
 
-  const signUp = async (email: string, password: string, userData: any) => {
+  const signUp = async (signupData: any) => {
     try {
       setLoading(true)
-      const result = await authService.signUp(email, password, userData)
+      const result = await authService.signUp(signupData.email, signupData.password, signupData)
       
       // Update auth state
       setUser(result.user)
@@ -92,15 +92,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       
       return { 
         data: result, 
-        error: null
+        error: null,
+        message: 'Account created successfully! Welcome to WondasTeach.'
       }
     } catch (error: any) {
       console.error('Signup error:', error)
       
-      if (error.message.includes('already been registered')) {
+      if (error.message && error.message.includes('already been registered')) {
         return { 
           data: null, 
-          error: 'An account with this email already exists. Please try signing in instead.' 
+          error: 'DUPLICATE_EMAIL',
+          message: 'An account with this email already exists. Please try signing in instead.'
         }
       }
       

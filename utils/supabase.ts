@@ -600,6 +600,11 @@ export const dbService = {
 // Auth helper functions
 export const authService = {
   async signUp(email: string, password: string, userData: any) {
+    // Check if userData has the expected properties
+    if (!userData || !userData.firstName) {
+      throw new Error('Invalid user data provided');
+    }
+
     if (supabase && hasRealCredentials) {
       try {
         const { data, error } = await supabase.auth.signUp({
@@ -618,6 +623,15 @@ export const authService = {
 
         // Create profile after successful signup
         if (data.user) {
+          let logoUrl = null;
+          if (userData.schoolLogo) {
+            try {
+              logoUrl = await dbService.uploadSchoolLogo(data.user.id, userData.schoolLogo);
+            } catch (error) {
+              console.log('Logo upload failed, continuing without logo:', error);
+            }
+          }
+
           await dbService.upsertProfile({
             id: data.user.id,
             email: data.user.email!,
@@ -626,6 +640,8 @@ export const authService = {
             user_type: userData.userType,
             phone: userData.phone || null,
             school_name: userData.schoolName || null,
+            school_logo: logoUrl,
+            bio: userData.schoolDescription || null,
             availability: userData.userType === 'teacher' ? 'available' : 'active',
             created_at: new Date().toISOString(),
             updated_at: new Date().toISOString()
@@ -639,7 +655,12 @@ export const authService = {
       }
     }
     
-    // Mock implementation
+    // Mock implementation - check if user with this email already exists
+    const existingUser = Array.from(mockStorage.users.values()).find(u => u.email === email)
+    if (existingUser) {
+      throw new Error('User with this email has already been registered')
+    }
+    
     const userId = generateId()
     const user = {
       id: userId,
@@ -655,6 +676,12 @@ export const authService = {
     // Store mock user
     mockStorage.users.set(userId, user)
     
+    // Handle school logo upload in mock mode
+    let logoUrl = null;
+    if (userData.schoolLogo) {
+      logoUrl = await dbService.uploadSchoolLogo(userId, userData.schoolLogo);
+    }
+    
     // Create profile
     const profile: Profile = {
       id: userId,
@@ -664,6 +691,8 @@ export const authService = {
       user_type: userData.userType,
       phone: userData.phone || null,
       school_name: userData.schoolName || null,
+      school_logo: logoUrl,
+      bio: userData.schoolDescription || null,
       availability: userData.userType === 'teacher' ? 'available' : 'active',
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString()
